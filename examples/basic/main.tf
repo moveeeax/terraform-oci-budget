@@ -13,6 +13,12 @@ module "budget" {
       threshold  = 80
       recipients = "finops@example.com"
       message    = "Budget has reached 80% of the monthly limit."
+    },
+    {
+      threshold  = 100
+      type       = "FORECAST"
+      recipients = "finops@example.com,platform@example.com"
+      message    = "Spend is forecast to exceed the monthly limit."
     }
   ]
 
