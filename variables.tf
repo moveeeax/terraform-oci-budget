@@ -15,8 +15,50 @@ variable "description" {
 }
 
 variable "target_compartment_id" {
-  description = "OCID of the compartment the budget tracks spend for."
+  description = "OCID of the compartment the budget tracks spend for. Shortcut for target = { type = \"COMPARTMENT\", ids = [<ocid>] }. Mutually exclusive with target; exactly one of the two must be set."
   type        = string
+  default     = null
+}
+
+variable "target" {
+  description = <<-EOT
+    What the budget tracks spend for. Use this instead of target_compartment_id
+    to budget on a cost-tracking tag. Mutually exclusive with
+    target_compartment_id; exactly one of the two must be set.
+
+    * `type` - `COMPARTMENT` or `TAG`.
+    * `ids`  - For `COMPARTMENT`, compartment OCIDs. For `TAG`, cost-tracking
+               tag identifiers in the form `namespace.key.value`. The Budgets
+               API currently accepts exactly one entry.
+  EOT
+  type = object({
+    type = string
+    ids  = list(string)
+  })
+  default = null
+
+  validation {
+    condition     = var.target == null ? true : contains(["COMPARTMENT", "TAG"], var.target.type)
+    error_message = "target.type must be COMPARTMENT or TAG."
+  }
+
+  # The provider documents targets as "the array should contain exactly one
+  # item"; a longer list is rejected at apply time.
+  validation {
+    condition     = var.target == null ? true : length(var.target.ids) == 1
+    error_message = "target.ids must contain exactly one entry; the Budgets API accepts a single target per budget."
+  }
+
+  validation {
+    condition = var.target == null ? true : alltrue([
+      for id in var.target.ids : (
+        var.target.type == "TAG"
+        ? can(regex("^[^.[:space:]]+\\.[^.[:space:]]+\\.\\S.*$", id))
+        : can(regex("^ocid1\\.", id))
+      )
+    ])
+    error_message = "target.ids must be compartment OCIDs when target.type is COMPARTMENT, and cost-tracking tags in the form namespace.key.value when target.type is TAG."
+  }
 }
 
 variable "amount" {

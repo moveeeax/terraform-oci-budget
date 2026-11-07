@@ -1,8 +1,8 @@
 # terraform-oci-budget
 
 Terraform module that manages an [Oracle Cloud Infrastructure](https://www.oracle.com/cloud/)
-Budget that tracks spend for a target compartment, along with any number of alert rules
-that email recipients when actual or forecast spend crosses a threshold.
+Budget that tracks spend for a compartment or a cost-tracking tag, along with any number of
+alert rules that email recipients when actual or forecast spend crosses a threshold.
 
 ## Usage
 
@@ -36,6 +36,35 @@ module "budget" {
 
 A runnable example lives in [`examples/basic`](examples/basic).
 
+## Budget target
+
+Set exactly one of `target_compartment_id` or `target`; setting both or neither fails at plan
+time.
+
+`target_compartment_id` is the shortcut for a budget on one compartment. `target` also covers
+budgets on a cost-tracking tag, for teams and projects whose resources are spread across
+compartments:
+
+```hcl
+module "checkout_budget" {
+  source = "github.com/moveeeax/terraform-oci-budget?ref=v1.0.0"
+
+  compartment_id = var.tenancy_id
+  display_name   = "checkout-budget"
+  amount         = 1500
+
+  target = {
+    type = "TAG"
+    ids  = ["CostTracking.Project.checkout"] # namespace.key.value
+  }
+}
+```
+
+`target.type` is `COMPARTMENT` or `TAG`. For `TAG`, each entry in `ids` is a cost-tracking
+tag in the form `namespace.key.value`; the tag key has to be marked as a cost-tracking tag in
+its namespace. The Budgets API currently accepts exactly one target per budget, so `ids` must
+hold a single entry.
+
 ## Alert rules
 
 Each element of `alert_rules` is an object with these attributes:
@@ -67,7 +96,8 @@ time.
 | `compartment_id`        | OCID of the compartment (tenancy) in which to create the budget.   | `string`            | n/a         |   yes    |
 | `display_name`          | Human-readable name for the budget.                               | `string`            | n/a         |   yes    |
 | `description`           | Description of the budget.                                         | `string`            | `null`      |    no    |
-| `target_compartment_id` | OCID of the compartment the budget tracks spend for.              | `string`            | n/a         |   yes    |
+| `target_compartment_id` | OCID of the compartment the budget tracks spend for. Mutually exclusive with `target`. | `string`            | `null`      | see [Budget target](#budget-target) |
+| `target`                | `{ type = "COMPARTMENT" or "TAG", ids = [one entry] }`. Mutually exclusive with `target_compartment_id`. | `object(...)`       | `null`      | see [Budget target](#budget-target) |
 | `amount`                | Budget amount in the tenancy currency. Must be a whole number.    | `number`            | n/a         |   yes    |
 | `reset_period`          | How often the budget resets.                                      | `string`            | `"MONTHLY"` |    no    |
 | `alert_rules`           | Alert rules notifying recipients on threshold crossings. See [Alert rules](#alert-rules). | `list(object(...))` | `[]`        |    no    |

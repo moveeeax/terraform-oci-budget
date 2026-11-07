@@ -231,3 +231,128 @@ run "rejects_fractional_amount" {
 
   expect_failures = [var.amount]
 }
+
+# --- target: compartment or cost-tracking tag ----------------------------------
+
+run "tag_targeted_budget" {
+  command = plan
+
+  variables {
+    target_compartment_id = null
+    target = {
+      type = "TAG"
+      ids  = ["CostTracking.Project.checkout"]
+    }
+  }
+
+  assert {
+    condition     = oci_budget_budget.this.target_type == "TAG"
+    error_message = "A tag budget must be sent with target_type TAG."
+  }
+
+  assert {
+    condition     = oci_budget_budget.this.targets == tolist(["CostTracking.Project.checkout"])
+    error_message = "The cost-tracking tag must be passed through as the single target."
+  }
+}
+
+run "compartment_target_object" {
+  command = plan
+
+  variables {
+    target_compartment_id = null
+    target = {
+      type = "COMPARTMENT"
+      ids  = ["ocid1.compartment.oc1..aaaaaaaaothercompartment"]
+    }
+  }
+
+  assert {
+    condition     = oci_budget_budget.this.target_type == "COMPARTMENT"
+    error_message = "A compartment target object must be sent with target_type COMPARTMENT."
+  }
+
+  assert {
+    condition     = oci_budget_budget.this.targets == tolist(["ocid1.compartment.oc1..aaaaaaaaothercompartment"])
+    error_message = "The compartment OCID from target.ids must be passed through."
+  }
+}
+
+run "rejects_target_and_target_compartment_id_together" {
+  command = plan
+
+  variables {
+    target = {
+      type = "TAG"
+      ids  = ["CostTracking.Project.checkout"]
+    }
+  }
+
+  expect_failures = [oci_budget_budget.this]
+}
+
+run "rejects_missing_target" {
+  command = plan
+
+  variables {
+    target_compartment_id = null
+  }
+
+  expect_failures = [oci_budget_budget.this]
+}
+
+run "rejects_invalid_target_type" {
+  command = plan
+
+  variables {
+    target_compartment_id = null
+    target = {
+      type = "PROJECT"
+      ids  = ["CostTracking.Project.checkout"]
+    }
+  }
+
+  expect_failures = [var.target]
+}
+
+run "rejects_multiple_targets" {
+  command = plan
+
+  variables {
+    target_compartment_id = null
+    target = {
+      type = "TAG"
+      ids  = ["CostTracking.Project.checkout", "CostTracking.Project.search"]
+    }
+  }
+
+  expect_failures = [var.target]
+}
+
+run "rejects_malformed_tag_target" {
+  command = plan
+
+  variables {
+    target_compartment_id = null
+    target = {
+      type = "TAG"
+      ids  = ["CostTracking.Project"]
+    }
+  }
+
+  expect_failures = [var.target]
+}
+
+run "rejects_tag_passed_as_compartment" {
+  command = plan
+
+  variables {
+    target_compartment_id = null
+    target = {
+      type = "COMPARTMENT"
+      ids  = ["CostTracking.Project.checkout"]
+    }
+  }
+
+  expect_failures = [var.target]
+}
